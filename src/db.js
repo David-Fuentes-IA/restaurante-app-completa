@@ -1,26 +1,28 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// LÓGICA INTELIGENTE DE CONEXIÓN
+// Si el host es 'localhost', estamos en Docker (PC) -> NO usar SSL.
+// Si el host es cualquier otra cosa (Railway), estamos en Nube -> SÍ usar SSL.
+const isLocal = process.env.DB_HOST === 'localhost';
+
 const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   database: process.env.DB_NAME,
-  // --- CORRECCIÓN CRÍTICA PARA LA NUBE ---
-  // Si estamos en localhost (PC), SSL es falso.
-  // Si estamos en la nube (Railway), SSL es obligatorio y "permisivo".
-  ssl: {
-    rejectUnauthorized: false
-  }
+  // Configuración de Seguridad (SSL)
+  ssl: isLocal ? false : { rejectUnauthorized: false }
+});
 
+// Eventos para monitorear la salud de la conexión
 pool.on('connect', () => {
   console.log('✅ Conectado a la Base de Datos PostgreSQL');
 });
 
-// Manejo de errores de conexión para que no tumbe el servidor
 pool.on('error', (err) => {
-  console.error('❌ Error inesperado en el cliente de PG', err);
+  console.error('❌ Error CRÍTICO en la base de datos:', err);
 });
 
 module.exports = pool;
