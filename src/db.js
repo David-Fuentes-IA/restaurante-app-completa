@@ -1,22 +1,26 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// LÓGICA INTELIGENTE DE CONEXIÓN
-// Si el host es 'localhost', estamos en Docker (PC) -> NO usar SSL.
-// Si el host es cualquier otra cosa (Railway), estamos en Nube -> SÍ usar SSL.
-const isLocal = process.env.DB_HOST === 'localhost';
+// CONFIGURACIÓN DE CONEXIÓN
+// Opción A: Si existe DATABASE_URL (Nube), usamos esa.
+// Opción B: Si no, usamos las variables sueltas (Local).
+const connectionConfig = process.env.DATABASE_URL 
+  ? { 
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false } // SSL Obligatorio para Railway
+    }
+  : {
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      database: process.env.DB_NAME,
+      ssl: false // Sin SSL en local
+    };
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  // Configuración de Seguridad (SSL)
-  ssl: isLocal ? false : { rejectUnauthorized: false }
-});
+const pool = new Pool(connectionConfig);
 
-// Eventos para monitorear la salud de la conexión
+// Eventos de monitoreo
 pool.on('connect', () => {
   console.log('✅ Conectado a la Base de Datos PostgreSQL');
 });
