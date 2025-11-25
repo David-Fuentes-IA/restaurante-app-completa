@@ -1,0 +1,9 @@
+# Dependencias (son muy pesadas, la nube las instalará sola)
+node_modules/
+
+# Variables de entorno (¡SECRETOS! No subir)
+.env
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db

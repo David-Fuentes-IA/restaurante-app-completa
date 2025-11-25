@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Restaurante Inteligente</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-top: 70px; /* Espacio para la navbar fija */ }
+        .mesa-card { 
+            cursor: pointer; transition: transform 0.2s; height: 100%;
+            border-left: 10px solid gray;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .mesa-card:hover { transform: scale(1.05); }
+        .disponible { border-left-color: #198754; background-color: #d1e7dd; } /* Verde */
+        .ocupada { border-left-color: #dc3545; background-color: #f8d7da; }    /* Rojo */
+        
+        /* Estilo para el usuario en la barra */
+        .user-badge {
+            background-color: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-right: 10px;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark bg-dark fixed-top px-4">
+        <a class="navbar-brand" href="#">🍽️ Restaurante Digital</a>
+        <div class="d-flex align-items-center">
+            <span id="nombre-usuario" class="user-badge">Cargando...</span>
+            <button onclick="cerrarSesion()" class="btn btn-outline-danger btn-sm">Cerrar Sesión 🚪</button>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2 class="text-center mb-4">Panel de Mesas</h2>
+        <div id="grid-mesas" class="row g-4"></div>
+    </div>
+
+    <div class="modal fade" id="modalGestion" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloModal">Gestionar Mesa</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="panel-disponible" class="d-none">
+                        <p>La mesa está libre. ¿Deseas abrir una cuenta?</p>
+                        <button onclick="abrirMesa()" class="btn btn-success w-100">✅ Abrir Nueva Orden</button>
+                    </div>
+
+                    <div id="panel-ocupada" class="d-none">
+                        <h6>📝 Agregar Producto</h6>
+                        <div class="input-group mb-3">
+                            <select id="select-platillos" class="form-select"></select>
+                            <input type="number" id="cantidad-platillo" class="form-control" value="1" min="1" style="max-width: 80px;">
+                            <button onclick="agregarProducto()" class="btn btn-primary">➕</button>
+                        </div>
+                        <hr>
+                        <h6>💰 Cerrar Cuenta</h6>
+                        <div class="input-group">
+                            <select id="select-pago" class="form-select">
+                                <option value="1">Efectivo</option>
+                                <option value="2">Tarjeta</option>
+                            </select>
+                            <input type="number" id="propina" class="form-control" placeholder="Propina">
+                            <button onclick="cerrarCuenta()" class="btn btn-danger">Pagar y Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // --- 1. SEGURIDAD Y SESIÓN ---
+        // Verificamos si hay usuario ANTES de hacer nada más
+        const usuarioLogueado = localStorage.getItem('usuarioRestaurante');
+        
+        if (!usuarioLogueado) {
+            // Si no hay sesión, mandar al login
+            window.location.href = '/login.html';
+        }
+
+        // Convertimos el texto JSON a objeto real para usar los datos
+        const usuario = JSON.parse(usuarioLogueado);
+        
+        // Mostramos el nombre en la barra superior
+        document.getElementById('nombre-usuario').innerText = `👤 ${usuario.nombre}`;
+
+        function cerrarSesion() {
+            // Borramos la credencial y recargamos, lo que activará la redirección al login
+            localStorage.removeItem('usuarioRestaurante');
+            window.location.href = '/login.html';
+        }
+
+        // --- 2. LÓGICA DEL RESTAURANTE ---
+        
+        let mesaSeleccionada = null;
+        const modal = new bootstrap.Modal(document.getElementById('modalGestion'));
+
+        // Cargar Mesas
+        async function cargarMesas() {
+            try {
+                const res = await fetch('/api/mesas');
+                const mesas = await res.json();
+                const contenedor = document.getElementById('grid-mesas');
+                contenedor.innerHTML = '';
+
+                mesas.forEach(mesa => {
+                    const div = document.createElement('div');
+                    div.className = 'col-6 col-md-4 col-lg-3';
+                    div.innerHTML = `
+                        <div class="card mesa-card ${mesa.estado} p-3" onclick='abrirModal(${JSON.stringify(mesa)})'>
+                            <h3 class="text-center">Mesa ${mesa.numero_mesa}</h3>
+                            <p class="text-center m-0">Cap: ${mesa.capacidad} | ${mesa.estado.toUpperCase()}</p>
+                        </div>
+                    `;
+                    contenedor.appendChild(div);
+                });
+            } catch (error) {
+                console.error("Error cargando mesas:", error);
+            }
+        }
+
+        // Cargar Menú
+        async function cargarMenu() {
+            try {
+                const res = await fetch('/api/platillos');
+                const platillos = await res.json();
+                const select = document.getElementById('select-platillos');
+                // Llenamos el select
+                select.innerHTML = platillos.map(p => 
+                    `<option value="${p.platillo_id}">${p.nombre} - $${p.precio}</option>`
+                ).join('');
+            } catch (error) {
+                console.error("Error cargando menú:", error);
+            }
+        }
+
+        // Abrir Modal
+        function abrirModal(mesa) {
+            mesaSeleccionada = mesa;
+            document.getElementById('tituloModal').innerText = `Mesa ${mesa.numero_mesa}`;
+            
+            if (mesa.estado === 'disponible') {
+                document.getElementById('panel-disponible').classList.remove('d-none');
+                document.getElementById('panel-ocupada').classList.add('d-none');
+            } else if (mesa.estado === 'ocupada') {
+                document.getElementById('panel-disponible').classList.add('d-none');
+                document.getElementById('panel-ocupada').classList.remove('d-none');
+            }
+            modal.show();
+        }
+
+        // ACCIÓN: Abrir Mesa
+        async function abrirMesa() {
+            if(!mesaSeleccionada) return;
+            
+            // ¡MEJORA!: Usamos el ID del empleado logueado en lugar de un número fijo
+            await fetch('/api/ordenes', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    mesa_id: mesaSeleccionada.mesa_id, 
+                    empleado_id: usuario.empleado_id // <--- Aquí usamos la sesión real
+                })
+            });
+            modal.hide();
+            cargarMesas();
+        }
+
+        // ACCIÓN: Agregar Producto
+        async function agregarProducto() {
+            const platilloId = document.getElementById('select-platillos').value;
+            const cantidad = document.getElementById('cantidad-platillo').value;
+            
+            await fetch(`/api/ordenes/${mesaSeleccionada.orden_id}/items`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ platillo_id: platilloId, cantidad: cantidad })
+            });
+            alert('Producto agregado');
+        }
+
+        // ACCIÓN: Pagar
+        async function cerrarCuenta() {
+            const metodo = document.getElementById('select-pago').value;
+            const propina = document.getElementById('propina').value || 0;
+
+            const res = await fetch('/api/pagos', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    orden_id: mesaSeleccionada.orden_id, 
+                    metodo_pago_id: metodo,
+                    monto_propina: propina
+                })
+            });
+            
+            const data = await res.json();
+            alert(`Pago procesado. Total: $${data.ticket.monto_total}`);
+            modal.hide();
+            cargarMesas();
+        }
+
+        // Inicialización
+        cargarMesas();
+        cargarMenu();
+    </script>
+</body>
+</html>
