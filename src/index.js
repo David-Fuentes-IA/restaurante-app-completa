@@ -29,6 +29,21 @@ app.use('/api', mesasRoutes); // <--- 3. Usar ruta de mesas
 
 app.use('/api', authRoutes);
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
-});
+// ... (todo tu código anterior de rutas) ...
+
+// --- PRUEBA DE CONEXIÓN AL INICIAR ---
+// Esto obligará a la BD a responder o fallar inmediatamente
+pool.query('SELECT NOW()')
+  .then(res => {
+    console.log('✅ ¡CONEXIÓN EXITOSA A LA BD! Hora:', res.rows[0].now);
+    
+    // Solo iniciamos el servidor si la BD funciona
+    app.listen(port, () => {
+      console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ ERROR FATAL AL CONECTAR A LA BD:');
+    console.error(err); // <-- Esto nos dirá EXACTAMENTE qué está mal
+    process.exit(1); // Apagar el servidor si no hay BD
+  });
