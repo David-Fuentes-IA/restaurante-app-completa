@@ -1,18 +1,25 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Creamos la conexión usando las variables de tu archivo .env
 const pool = new Pool({
-  user: 'admin',        // O el usuario que viste en el Paso 1
-  password: 'password123', // O la contraseña que viste en el Paso 1
-  host: 'localhost',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
   port: process.env.DB_PORT,
-  database: 'restaurante_db',
+  database: process.env.DB_NAME,
+  // --- CORRECCIÓN CRÍTICA PARA LA NUBE ---
+  // Si estamos en localhost (PC), SSL es falso.
+  // Si estamos en la nube (Railway), SSL es obligatorio y "permisivo".
+  ssl: process.env.DB_HOST === 'localhost' ? false : { rejectUnauthorized: false }
 });
 
-// Mensaje de éxito cuando se conecta
 pool.on('connect', () => {
   console.log('✅ Conectado a la Base de Datos PostgreSQL');
+});
+
+// Manejo de errores de conexión para que no tumbe el servidor
+pool.on('error', (err) => {
+  console.error('❌ Error inesperado en el cliente de PG', err);
 });
 
 module.exports = pool;
