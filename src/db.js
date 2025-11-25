@@ -10,8 +10,9 @@ const pool = new Pool({
   // --- CORRECCIÓN CRÍTICA PARA LA NUBE ---
   // Si estamos en localhost (PC), SSL es falso.
   // Si estamos en la nube (Railway), SSL es obligatorio y "permisivo".
-  ssl: process.env.DB_HOST === 'localhost' ? false : { rejectUnauthorized: false }
-});
+  ssl: {
+    rejectUnauthorized: false
+  }
 
 pool.on('connect', () => {
   console.log('✅ Conectado a la Base de Datos PostgreSQL');
